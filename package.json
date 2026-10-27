@@ -1,0 +1,47 @@
+{
+  "name": "evomeme-trend-radar",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node --use-env-proxy node_modules/next/dist/bin/next dev --hostname 0.0.0.0",
+    "build": "prisma generate && next build",
+    "start": "node --use-env-proxy node_modules/next/dist/bin/next start --hostname 0.0.0.0",
+    "lint": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:local": "tsx scripts/database.ts",
+    "sync": "node --use-env-proxy --import tsx --env-file=.env scripts/sync.ts",
+    "test:e2e": "playwright test",
+    "local": "node scripts/local.mjs"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "dotenv": "^18.0.9",
+    "embedded-postgres": "^18.0.0-beta.15",
+    "fast-xml-parser": "^5.3.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.0",
+    "papaparse": "^5.5.3",
+    "prisma": "^7.10.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.0.0",
+    "@types/papaparse": "^5.3.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "prettier": "^3.9.10",
+    "tailwindcss": "^4.1.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

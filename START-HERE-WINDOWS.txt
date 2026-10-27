@@ -1,0 +1,15 @@
+EvoMeme Trend Radar — Windows 本地浏览器版
+
+1. 先安装 Node.js 24 LTS（Windows x64）：https://nodejs.org/
+2. 完整解压此文件夹，不要在 ZIP 中直接运行。
+3. 双击 start-windows.bat。
+4. 首次需要联网安装并构建；等待 READY 后自动打开浏览器。
+5. 使用时保留命令窗口；结束时按 Ctrl+C。
+
+不需要 Railway、不需要服务器，不需要另装 PostgreSQL。
+没有 AI Key 也可以启动，规则创意会明确标记。
+新安装的数据库为空，可在每日选题页获取 PH/PK 热点，或导入授权资料。
+资料保存在 .local/postgres，请正常停止程序后备份。
+
+详见 docs/LOCAL-WINDOWS.md。
+Windows 真机尚未验证；相同 Node 启动流程在 Linux 测试，Windows x64 为上游数据库二进制包支持平台。

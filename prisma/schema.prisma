@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "client"
+}
+datasource db {
+  provider = "postgresql"
+}
+model Source {
+  id String @id @default(cuid())
+  name String
+  kind String
+  url String
+  country String @default("Global")
+  enabled Boolean @default(true)
+  lastSuccess DateTime?
+  lastFailure DateTime?
+  error String?
+  createdAt DateTime @default(now())
+  logs SyncLog[]
+}
+model SyncLog {
+  id String @id @default(cuid())
+  sourceId String
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  status String
+  count Int @default(0)
+  message String?
+  createdAt DateTime @default(now())
+}
+model Trend {
+  id String @id @default(cuid())
+  title String
+  originalTitle String
+  summary String @default("")
+  url String
+  identity String @unique
+  platform String
+  country String
+  language String
+  type String
+  scene String @default("")
+  keywords String[] @default([])
+  mechanisms String[] @default([])
+  emotions String[] @default([])
+  publishedAt DateTime?
+  collectedAt DateTime @default(now())
+  firstSeen DateTime @default(now())
+  favorite Boolean @default(false)
+  analysis Json?
+  details Json?
+  snapshots Snapshot[]
+  ideas Idea[]
+}
+model Snapshot {
+  id String @id @default(cuid())
+  trendId String
+  trend Trend @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  metric String
+  value Float
+  capturedAt DateTime
+  provenance String
+  @@unique([trendId, metric, capturedAt])
+}
+model Idea {
+  id String @id @default(cuid())
+  trendId String
+  trend Trend @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  title String
+  direction String
+  status String @default("Backlog")
+  content Json
+  prompt String
+  campaign Json
+  tags String[] @default([])
+  rating Int?
+  favorite Boolean @default(false)
+  outcomes Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  versions IdeaVersion[]
+}
+model IdeaVersion {
+  id String @id @default(cuid())
+  ideaId String
+  idea Idea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  data Json
+  createdAt DateTime @default(now())
+}
+model Watch {
+  id String @id @default(cuid())
+  keyword String
+  country String
+  createdAt DateTime @default(now())
+}
+model Setting {
+  key String @id
+  value Json
+}
+model ScoreRecord {
+  id String @id @default(cuid())
+  trendId String
+  result Json
+  weights Json
+  ruleVersion String
+  createdAt DateTime @default(now())
+  @@index([trendId, createdAt])
+}
