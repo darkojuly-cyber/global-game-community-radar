@@ -54,3 +54,24 @@ test("PostgreSQL inherits Windows environment, preserves spaces in arguments and
     else process.env.SystemRoot = previous;
   }
 });
+test("pg_ctl exit resolves even when background process keeps output pipes open", async () => {
+  const child = Object.assign(new EventEmitter(), {
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
+    kill: () => {},
+  });
+  const spawnProcess = () => {
+    queueMicrotask(() => {
+      child.stdout.write("server started");
+      child.emit("exit", 0, null);
+    });
+    return child;
+  };
+  const result = await runPostgresCommand("pg_ctl.exe", ["start"], {
+    timeout: 500,
+    spawnProcess: spawnProcess as unknown as typeof spawn,
+  });
+  assert.match(result, /server started/);
+  assert.equal(child.stdout.destroyed, true);
+  assert.equal(child.stderr.destroyed, true);
+});

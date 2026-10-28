@@ -147,48 +147,55 @@ async function main() {
       throw Error(
         "Configured database is unavailable. Check .env; it will not be replaced.",
       );
-    console.log("Starting persistent local PostgreSQL...");
-    const databaseOutput = (message) => {
-      console.log(message);
-      try {
-        appendFileSync(".local/postgres-startup.log", String(message) + "\n");
-      } catch {
-        console.error(
-          "Could not append startup log; diagnostics are shown above.",
-        );
-      }
-    };
-    if (process.platform === "win32") {
-      const { createNativeDatabase } = await import("./native-postgres.mjs");
-      const binaries = await import("@embedded-postgres/windows-x64");
-      ownedDatabase = await createNativeDatabase({
-        binaries,
-        dataDir: resolve(".local/postgres"),
-        logFile: resolve(".local/postgres-startup.log"),
-        onOutput: databaseOutput,
-      });
+    const { reuseRunningDatabase } = await import("./native-postgres.mjs");
+    if (await reuseRunningDatabase(process.env.DATABASE_URL)) {
+      console.log(
+        "Reusing running local PostgreSQL; application database is ready.",
+      );
     } else {
-      const { default: EmbeddedPostgres } = await import("embedded-postgres");
-      ownedDatabase = new EmbeddedPostgres({
-        databaseDir: resolve(".local/postgres"),
-        user: "radar",
-        password: "radar_local",
-        port: 55432,
-        persistent: true,
-        onLog: databaseOutput,
-        onError: console.error,
-      });
-      if (!existsSync(".local/postgres/PG_VERSION"))
-        await ownedDatabase.initialise();
-      await ownedDatabase.start();
+      console.log("Starting persistent local PostgreSQL...");
+      const databaseOutput = (message) => {
+        console.log(message);
+        try {
+          appendFileSync(".local/launcher.log", String(message) + "\n");
+        } catch {
+          console.error(
+            "Could not append startup log; diagnostics are shown above.",
+          );
+        }
+      };
+      if (process.platform === "win32") {
+        const { createNativeDatabase } = await import("./native-postgres.mjs");
+        const binaries = await import("@embedded-postgres/windows-x64");
+        ownedDatabase = await createNativeDatabase({
+          binaries,
+          dataDir: resolve(".local/postgres"),
+          logFile: resolve(".local/postgres-startup.log"),
+          onOutput: databaseOutput,
+        });
+      } else {
+        const { default: EmbeddedPostgres } = await import("embedded-postgres");
+        ownedDatabase = new EmbeddedPostgres({
+          databaseDir: resolve(".local/postgres"),
+          user: "radar",
+          password: "radar_local",
+          port: 55432,
+          persistent: true,
+          onLog: databaseOutput,
+          onError: console.error,
+        });
+        if (!existsSync(".local/postgres/PG_VERSION"))
+          await ownedDatabase.initialise();
+        await ownedDatabase.start();
+      }
+      const client = ownedDatabase.getPgClient();
+      await client.connect();
+      const found = await client.query(
+        "SELECT 1 FROM pg_database WHERE datname='radar'",
+      );
+      await client.end();
+      if (!found.rowCount) await ownedDatabase.createDatabase("radar");
     }
-    const client = ownedDatabase.getPgClient();
-    await client.connect();
-    const found = await client.query(
-      "SELECT 1 FROM pg_database WHERE datname='radar'",
-    );
-    await client.end();
-    if (!found.rowCount) await ownedDatabase.createDatabase("radar");
     if (!(await connected()))
       throw Error("Local PostgreSQL failed its connection check.");
   }

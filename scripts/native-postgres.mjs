@@ -32,6 +32,8 @@ export function runPostgresCommand(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      child.stdout?.destroy();
+      child.stderr?.destroy();
       error ? reject(error) : resolve(output);
     };
     const collect = (data) => {
@@ -53,7 +55,7 @@ export function runPostgresCommand(
         ),
       ),
     );
-    child.once("close", (code, signal) => {
+    const exited = (code, signal) => {
       if (timedOut) return;
       finish(
         code === 0
@@ -62,7 +64,13 @@ export function runPostgresCommand(
               `PostgreSQL utility exited with code ${code}, signal ${signal ?? "none"}.\n${output || "No diagnostic output."}`,
             ),
       );
-    });
+    };
+    // pg_ctl can exit while a background server still holds inherited pipes.
+    // Wait for exit, not pipe closure; allow already-buffered diagnostics to drain.
+    child.once("exit", (code, signal) =>
+      setImmediate(() => exited(code, signal)),
+    );
+    child.once("close", exited);
   });
 }
 export async function createNativeDatabase({
@@ -164,4 +172,36 @@ export async function createNativeDatabase({
       stopped = true;
     },
   };
+}
+
+// Recover after a previous launcher exited after starting the server but before
+// creating the application database. Never stop or reset a reused server.
+export async function reuseRunningDatabase(connectionString) {
+  const url = new URL(connectionString);
+  const database = decodeURIComponent(url.pathname.slice(1));
+  url.pathname = "/postgres";
+  const { default: pg } = await import("pg");
+  const client = new pg.Client({
+    connectionString: url.toString(),
+    connectionTimeoutMillis: 2000,
+  });
+  let connected = false;
+  try {
+    await client.connect();
+    connected = true;
+    const exists = await client.query(
+      "SELECT 1 FROM pg_database WHERE datname=$1",
+      [database],
+    );
+    if (!exists.rowCount)
+      await client.query(
+        "CREATE DATABASE " + client.escapeIdentifier(database),
+      );
+    return true;
+  } catch (error) {
+    if (!connected && error?.code === "ECONNREFUSED") return false;
+    throw error;
+  } finally {
+    await client.end().catch(() => {});
+  }
 }

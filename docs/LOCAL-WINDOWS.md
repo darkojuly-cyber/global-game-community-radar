@@ -39,3 +39,9 @@ RSS、YouTube 和 AI 服务需要联网；外网访问失败会显示实际错�
 已有用户下载更新后的 windows-local 分支 ZIP，只需将其中整个 `scripts` 文件夹复制到旧程序目录、替换同名文件，然后再次运行旧目录的 `start-windows.bat`。保留旧目录的 `.env`、`.local`、`node_modules`，无需重装或清空数据。
 
 若仍失败，请提供窗口底部诊断或 `.local/postgres-startup.log` 的最后约 30 行。不要发送 `.env` 文件。
+
+### server started 后停住
+
+后续补丁修复了 Windows 后台服务器继承输出管道导致的等待：以 pg_ctl 进程退出判断命令完成，不再等待后台进程关闭管道。启动器日志改为 `.local/launcher.log`，与数据库服务的 `.local/postgres-startup.log` 分离，避免 Windows 文件共享冲突。若上次已启动数据库但未完成应用数据库创建，重试会复用已运行服务并补建缺失的应用数据库；不会清空原有数据。
+
+关闭旧启动窗口，再按上面的方式替换整个 scripts 文件夹后重试。此次包含输出管道保持打开的回归测试，以及真实 PostgreSQL 的首次初始化、服务复用、缺失数据库恢复和重启后数据保留验证（Linux；Windows 仍需真机确认）。
