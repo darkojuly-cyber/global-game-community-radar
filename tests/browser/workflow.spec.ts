@@ -37,7 +37,7 @@ test("real persistence workflow: import, validate evidence, create/edit/version/
     page.getByRole("heading", { name: title, exact: true }),
   ).toBeVisible();
   await expect(page.getByText("没有可验证的数值指标。")).toBeVisible();
-  await page.getByRole("button", { name: "Turn Into Game Idea" }).click();
+  await page.getByRole("button", { name: "使用规则草案（无需密钥）" }).click();
   await expect(page).toHaveURL(/library/);
   const ideas = await (await request.get("/api/ideas")).json();
   const generated = ideas.filter(

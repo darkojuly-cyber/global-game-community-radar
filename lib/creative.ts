@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "./db";
 import { recordScores } from "./scoring";
 import { mechanisms } from "./domain";
+import { aiHttpError } from "./ai-errors";
 const analysisSchema = z.object({
   translation: z.string(),
   literalMeaning: z.string(),
@@ -29,7 +30,7 @@ const analysisSchema = z.object({
   }),
 });
 async function ai(system: string, input: unknown) {
-  if (!process.env.OPENAI_API_KEY)
+  if (!process.env.OPENAI_API_KEY?.trim())
     throw new Error(
       "未配置 OPENAI_API_KEY。可使用人工分析或明确标注的规则创意，不会伪造 AI 分析。",
     );
@@ -37,10 +38,10 @@ async function ai(system: string, input: unknown) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY?.trim()}`,
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+      model: process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini",
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
@@ -49,7 +50,7 @@ async function ai(system: string, input: unknown) {
     }),
     signal: AbortSignal.timeout(60000),
   });
-  if (!res.ok) throw new Error(`AI 服务 HTTP ${res.status}`);
+  if (!res.ok) throw aiHttpError(res.status);
   const data = await res.json();
   return JSON.parse(data.choices[0].message.content);
 }
@@ -93,7 +94,7 @@ export async function analyze(id: string) {
       mechanisms: parsed.mechanisms,
       analysis: {
         ...parsed,
-        model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+        model: process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini",
         promptVersion: "evidence-v1",
         createdAt: new Date().toISOString(),
         basis: "AI inference from supplied text; no video access",
@@ -184,7 +185,10 @@ export function makeIdea(
   };
   return { title: name, direction, content, prompt, campaign };
 }
-export async function generateIdeas(id: string) {
+export async function generateIdeas(
+  id: string,
+  mode: "auto" | "rules" = "auto",
+) {
   const t = await db.trend.findUniqueOrThrow({ where: { id } });
   let ideas = ["Quick Prototype", "Viral-first", "Creative Twist"].map((d) =>
     makeIdea(t.title, t.country, t.summary, d),
@@ -205,7 +209,7 @@ export async function generateIdeas(id: string) {
     prompt:
       i.prompt + " Reference context (not verified popularity): " + context,
   }));
-  if (process.env.OPENAI_API_KEY) {
+  if (mode !== "rules" && process.env.OPENAI_API_KEY?.trim()) {
     const expected = ideas[0];
     const strings = z.record(z.string(), z.string().min(1).max(20000));
     const schema = z.object({
@@ -239,7 +243,7 @@ export async function generateIdeas(id: string) {
         if (!i.content[key]) throw new Error(`AI 创意缺少字段 ${key}`);
       for (const key of Object.keys(expected.campaign))
         if (!i.campaign[key]) throw new Error(`AI 宣传内容缺少字段 ${key}`);
-      i.content.generation = `AI 生成 / ${process.env.OPENAI_MODEL ?? "gpt-4o-mini"} / creative-v1 / ${new Date().toISOString()} / 未经市场验证`;
+      i.content.generation = `AI 生成 / ${process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini"} / creative-v1 / ${new Date().toISOString()} / 未经市场验证`;
     }
     ideas = parsed.ideas as typeof ideas;
   }

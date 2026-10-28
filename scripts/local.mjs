@@ -118,6 +118,9 @@ async function main() {
     await npm(["ci"]);
   }
   await import("dotenv/config");
+  const { parse } = await import("dotenv");
+  const { applyLocalAiConfig } = await import("./local-ai-config.mjs");
+  applyLocalAiConfig(parse(readFileSync(".env")));
   if (!process.env.DATABASE_URL) throw Error("DATABASE_URL is missing in .env");
   const { default: pg } = await import("pg");
   async function connected() {

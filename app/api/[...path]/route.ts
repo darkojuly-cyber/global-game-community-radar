@@ -67,8 +67,8 @@ export async function GET(
           (await db.setting.findUnique({ where: { key: "weights" } }))?.value ??
           defaultWeights,
         youtube: !!process.env.YOUTUBE_API_KEY,
-        ai: !!process.env.OPENAI_API_KEY,
-        model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+        ai: !!process.env.OPENAI_API_KEY?.trim(),
+        model: process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini",
         scoreVersion: "scores-v1",
         scenes:
           (await db.setting.findUnique({ where: { key: "scenes" } }))?.value ??
@@ -200,7 +200,12 @@ export async function POST(
     }
     if (p[0] === "trends" && p[1]) {
       if (p[2] === "analyze") return json(await analyze(p[1]));
-      if (p[2] === "ideas") return json(await generateIdeas(p[1]));
+      if (p[2] === "ideas") {
+        const { mode } = z
+          .object({ mode: z.enum(["auto", "rules"]).default("auto") })
+          .parse(body);
+        return json(await generateIdeas(p[1], mode));
+      }
       const data = z
         .object({
           favorite: z.boolean().optional(),

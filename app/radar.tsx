@@ -1002,7 +1002,10 @@ export default function Radar() {
                     <h2>让这个热点，变得可玩。</h2>
                     <p>
                       生成 Quick Prototype / Viral-first / Creative Twist
-                      三类规则草案。
+                      三类创意方向。
+                      {config.ai
+                        ? "已填写密钥，将尝试 AI；也可直接使用规则草案。"
+                        : "未配置 API 密钥，将生成明确标记的规则草案。"}
                     </p>
                   </div>
                   <button
@@ -1020,6 +1023,24 @@ export default function Radar() {
                     }
                   >
                     Turn Into Game Idea <ArrowRight size={16} />
+                  </button>
+                  <button
+                    className="button subtle"
+                    disabled={!!busy}
+                    onClick={() =>
+                      run(
+                        "rule-ideas",
+                        async () => {
+                          await request(`trends/${trend.id}/ideas`, {
+                            mode: "rules",
+                          });
+                          router.push("/library");
+                        },
+                        "已生成明确标记的规则草案",
+                      )
+                    }
+                  >
+                    使用规则草案（无需密钥）
                   </button>
                 </div>
               </>
@@ -1964,7 +1985,7 @@ export default function Radar() {
                           <dt>OpenAI</dt>
                           <dd>
                             {config.ai
-                              ? "已配置 · " + config.model
+                              ? "已填写密钥（未验证）· " + config.model
                               : "未配置 OPENAI_API_KEY"}
                           </dd>
                         </div>
@@ -1978,7 +1999,11 @@ export default function Radar() {
                         </div>
                       </dl>
                       <p className="info-note">
-                        密钥仅通过服务器环境变量配置，不在网页录入或返回。缺失密钥不影响其他功能。生产环境须放在受保护的网络或认证网关后。
+                        本地版在程序目录 .env 中配置
+                        OPENAI_API_KEY，修改后须关闭启动窗口并重新启动。当前仅连接
+                        OpenAI 官方
+                        API；其他平台的密钥不能直接使用。网页只显示是否填写，不代表授权成功。缺少有效密钥时，可在热点详情点击“使用规则草案”，也可手动录入分析。不要上传
+                        .env 或发送密钥。
                       </p>
                     </section>
                     <section className="panel">
