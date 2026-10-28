@@ -31,3 +31,11 @@ RSS、YouTube 和 AI 服务需要联网；外网访问失败会显示实际错�
 如果双击窗口提示找不到 Node，完成 Node 安装后重新打开启动文件。若网络安装失败，先确认能访问 npm 官方仓库及 Prisma 官方下载域名，然后重新启动；脚本不关闭证书校验，也不会替换 lockfile。
 
 如需使用终端：在解压后的文件夹运行 `node scripts/local.mjs` 或 `npm run local`。无需执行 Linux 专用的 setup.sh。
+
+## 2026-10-28 启动补丁
+
+修复本地数据库提前退出时 `Cannot read properties of undefined (reading 'message')` 的二次报错。Windows 改用 PostgreSQL 自带的 initdb / pg_ctl，继承完整系统环境，不再依靠解析英文日志判断是否就绪。启动详情保存到 `.local/postgres-startup.log`，错误会保留实际退出码和原始诊断。
+
+已有用户下载更新后的 windows-local 分支 ZIP，只需将其中整个 `scripts` 文件夹复制到旧程序目录、替换同名文件，然后再次运行旧目录的 `start-windows.bat`。保留旧目录的 `.env`、`.local`、`node_modules`，无需重装或清空数据。
+
+若仍失败，请提供窗口底部诊断或 `.local/postgres-startup.log` 的最后约 30 行。不要发送 `.env` 文件。

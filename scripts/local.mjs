@@ -11,6 +11,8 @@ import { dirname, resolve, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { createServer } from "node:net";
+import { startupErrorMessage } from "./startup-errors.mjs";
+import { appendFileSync } from "node:fs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 process.chdir(root);
 const major = Number(process.versions.node.split(".")[0]);
@@ -36,7 +38,13 @@ async function stop(code = 0) {
     await Promise.race([exited, new Promise((r) => setTimeout(r, 3000))]);
     if (app.exitCode === null) app.kill("SIGKILL");
   }
-  if (ownedDatabase) await ownedDatabase.stop();
+  if (ownedDatabase) {
+    try {
+      await ownedDatabase.stop();
+    } catch (error) {
+      console.error("Database shutdown:", startupErrorMessage(error));
+    }
+  }
   process.exit(code);
 }
 process.on("SIGINT", () => void stop());
@@ -140,19 +148,40 @@ async function main() {
         "Configured database is unavailable. Check .env; it will not be replaced.",
       );
     console.log("Starting persistent local PostgreSQL...");
-    const { default: EmbeddedPostgres } = await import("embedded-postgres");
-    ownedDatabase = new EmbeddedPostgres({
-      databaseDir: resolve(".local/postgres"),
-      user: "radar",
-      password: "radar_local",
-      port: 55432,
-      persistent: true,
-      onLog: () => {},
-      onError: console.error,
-    });
-    if (!existsSync(".local/postgres/PG_VERSION"))
-      await ownedDatabase.initialise();
-    await ownedDatabase.start();
+    const databaseOutput = (message) => {
+      console.log(message);
+      try {
+        appendFileSync(".local/postgres-startup.log", String(message) + "\n");
+      } catch {
+        console.error(
+          "Could not append startup log; diagnostics are shown above.",
+        );
+      }
+    };
+    if (process.platform === "win32") {
+      const { createNativeDatabase } = await import("./native-postgres.mjs");
+      const binaries = await import("@embedded-postgres/windows-x64");
+      ownedDatabase = await createNativeDatabase({
+        binaries,
+        dataDir: resolve(".local/postgres"),
+        logFile: resolve(".local/postgres-startup.log"),
+        onOutput: databaseOutput,
+      });
+    } else {
+      const { default: EmbeddedPostgres } = await import("embedded-postgres");
+      ownedDatabase = new EmbeddedPostgres({
+        databaseDir: resolve(".local/postgres"),
+        user: "radar",
+        password: "radar_local",
+        port: 55432,
+        persistent: true,
+        onLog: databaseOutput,
+        onError: console.error,
+      });
+      if (!existsSync(".local/postgres/PG_VERSION"))
+        await ownedDatabase.initialise();
+      await ownedDatabase.start();
+    }
     const client = ownedDatabase.getPgClient();
     await client.connect();
     const found = await client.query(
@@ -245,7 +274,7 @@ async function main() {
   }
 }
 main().catch(async (e) => {
-  console.error("\nStartup failed:", e.message);
+  console.error("\nStartup failed:", startupErrorMessage(e));
   console.error(
     "No database has been reset. Save this output for troubleshooting.",
   );
